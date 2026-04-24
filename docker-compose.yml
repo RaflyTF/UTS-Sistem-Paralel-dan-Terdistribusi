@@ -1,0 +1,68 @@
+version: "3.9"
+
+# ── Docker Compose Bonus (+10%) ───────────────────────────────────────────────
+#
+# Architecture:
+#   publisher ──── POST /publish ────▶ aggregator
+#
+# Both services run on the default bridge network (no external internet needed).
+# The publisher waits for the aggregator's healthcheck to pass before starting.
+#
+# Usage:
+#   docker compose up --build          # build + start both services
+#   docker compose up --build -d       # detached
+#   docker compose logs -f aggregator  # tail aggregator logs
+#   docker compose logs -f publisher   # watch publisher progress
+#   docker compose down -v             # stop + remove volumes
+
+services:
+
+  # ── Aggregator ──────────────────────────────────────────────────────────────
+  aggregator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: uts-aggregator:latest
+    container_name: uts-aggregator
+    ports:
+      - "8080:8080"            # expose to host for manual curl / Postman testing
+    volumes:
+      - aggregator_data:/app/data   # persistent SQLite dedup store
+    environment:
+      - DEDUP_DB_PATH=/app/data/dedup_store.db
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Publisher ───────────────────────────────────────────────────────────────
+  publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile.publisher
+    image: uts-publisher:latest
+    container_name: uts-publisher
+    environment:
+      - AGGREGATOR_URL=http://aggregator:8080
+      - TOTAL_EVENTS=5000          # >= 5 000 as required
+      - DUPLICATE_RATIO=0.25       # 25% duplicates >= required 20%
+      - BATCH_SIZE=100
+    depends_on:
+      aggregator:
+        condition: service_healthy  # wait until /health returns 200
+    restart: "no"                   # one-shot — exits after publishing
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  aggregator_data:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+# Default Compose bridge network — internal only, no public internet
+networks:
+  default:
+    driver: bridge

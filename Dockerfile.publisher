@@ -1,0 +1,23 @@
+# Dockerfile.publisher — Lightweight publisher service for Docker Compose bonus
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Non-root user
+RUN adduser --disabled-password --gecos '' appuser \
+    && chown -R appuser:appuser /app
+
+# Publisher only needs httpx (no FastAPI/uvicorn)
+RUN pip install --no-cache-dir httpx==0.27.0
+
+USER appuser
+
+COPY --chown=appuser:appuser publisher/ ./publisher/
+
+# Environment defaults (overridden in docker-compose.yml)
+ENV AGGREGATOR_URL=http://aggregator:8080
+ENV TOTAL_EVENTS=5000
+ENV DUPLICATE_RATIO=0.25
+ENV BATCH_SIZE=100
+
+CMD ["python", "-m", "publisher.publisher"]
