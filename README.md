@@ -2,6 +2,11 @@
 
 Layanan log aggregator berbasis pola *publish-subscribe* dengan **idempotent consumer** dan **deduplication** persisten menggunakan SQLite. Dibangun dengan Python 3.11 · FastAPI · asyncio · Docker.
 
+## Tautan
+
+- Video demo: https://youtu.be/Zoaa2NbdyHA
+- Repository: https://github.com/RaflyTF/UTS-Sistem-Paralel-dan-Terdistribusi.git
+
 ---
 
 ## Prasyarat
